@@ -13,7 +13,7 @@
     - install_art
 
 - name: install artifactory
-  yum: name=https://ccs-artifactory.cisco.com/artifactory/artifactory-upstream/artifactory-powerpack-rpm/artifactory-powerpack-rpm/3.9.1/artifactory-powerpack-rpm-3.9.1.rpm state=present
+  yum: name=artifactory state=present
   tags:
     - install_art
 
