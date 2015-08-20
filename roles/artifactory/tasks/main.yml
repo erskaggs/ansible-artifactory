@@ -1,0 +1,64 @@
+---
+- name: add variable for firewalld status
+  command: firewall-cmd --state
+  register: fd_result
+  ignore_errors: True
+
+- name: install dependencies
+  yum: name={{ item }} state=present
+  with_items:
+    - java-1.7.0-openjdk.x86_64
+    - net-tools
+  tags:
+    - install_art
+
+- name: install artifactory
+  yum: name=https://ccs-artifactory.cisco.com/artifactory/artifactory-upstream/artifactory-powerpack-rpm/artifactory-powerpack-rpm/3.9.1/artifactory-powerpack-rpm-3.9.1.rpm state=present
+  tags:
+    - install_art
+
+- name: install tomcat config files
+  copy: src={{ item.src }} dest={{ item.dst }} force=yes owner=root group=root
+  with_items:
+    - {src: tomcat/web.xml, dst: /opt/jfrog/artifactory/tomcat/conf/web.xml }
+    - {src: tomcat/server.xml, dst: /opt/jfrog/artifactory/tomcat/conf/server.xml }
+    - {src: tomcat/logging.properties, dst: /opt/jfrog/artifactory/tomcat/conf/logging.properties }
+    - {src: tomcat/catalina.properties, dst: /opt/jfrog/artifactory/tomcat/conf/catalina.properties }
+    - {src: tomcat/catalina.policy, dst: /opt/jfrog/artifactory/tomcat/conf/catalina.policy }
+    - {src: tomcat/artifactory.xml, dst: /opt/jfrog/artifactory/tomcat/conf/Catalina/localhost/artifactory.xml }
+  notify:
+    - restart artifactory
+  tags:
+    - tomcat_confs
+
+- name: install artifactory config files
+  copy: src={{ item.src }} dest={{ item.dst }} force=yes owner=artifactory group=artifactory
+  with_items:
+    - {src: artifactory/artifactory.lic, dst: /etc/opt/jfrog/artifactory/artifactory.lic }
+    - {src: artifactory/storage.properties, dst: /etc/opt/jfrog/artifactory/storage.properties }
+    - {src: artifactory/mimetypes.xml, dst: /etc/opt/jfrog/artifactory/mimetypes.xml }
+    - {src: artifactory/logback.xml, dst: /etc/opt/jfrog/artifactory/logback.xml }
+    - {src: artifactory/default, dst: /etc/opt/jfrog/artifactory/default }
+    - {src: artifactory/artifactory.system.properties, dst: /etc/opt/jfrog/artifactory/artifactory.system.properties }
+    - {src: artifactory/artifactory.config.xml, dst: /etc/opt/jfrog/artifactory/artifactory.config.xml }
+    - {src: artifactory/security.import.xml, dst: /etc/opt/jfrog/artifactory/security.import.xml }
+  notify:
+    - restart artifactory
+  tags:
+    - art_confs
+
+- name: start artifactory
+  service: name=artifactory state=started
+  tags:
+    - art_confs
+    - tomcat_confs
+
+- name: open port 8081 for artifactory
+  firewalld: port=8081/tcp permanent=true state=enabled
+  tags:
+    - art_install
+  when: fd_result|success
+
+- name: reload firewalld config
+  command: firewall-cmd --reload
+  when: fd_result|success
